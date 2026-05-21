@@ -1,9 +1,19 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
 import { Alert, FlatList, StyleSheet, View } from 'react-native';
-import { Checkbox, FAB, List, Text } from 'react-native-paper';
+import {
+  Checkbox,
+  FAB,
+  IconButton,
+  List,
+  Modal,
+  Portal,
+  Text,
+  useTheme,
+} from 'react-native-paper';
 
 import AddItemEmCompraForm from '@/components/AddItemEmCompraForm';
+import EditItemForm from '@/components/EditItemForm';
 import FiltroChips, { type CompraFiltro } from '@/components/FiltroChips';
 import MarcarItemSheet from '@/components/MarcarItemSheet';
 import MercadoPicker from '@/components/MercadoPicker';
@@ -12,6 +22,7 @@ import type { ItemListaWithProduto } from '@/db/repos/itemListaRepo';
 import { formatBRL } from '@/lib/money';
 import type { ListasStackParamList } from '@/navigation/types';
 import { useAppStore } from '@/state';
+import type { AppTheme } from '@/theme';
 
 type Props = NativeStackScreenProps<ListasStackParamList, 'CompraMode'>;
 
@@ -47,6 +58,7 @@ const fmtSubtitle = (item: ItemListaWithProduto): string => {
 };
 
 export default function CompraModeScreen({ route, navigation }: Props): JSX.Element {
+  const theme = useTheme<AppTheme>();
   const items = useAppStore((s) => s.compraAtivaItems);
   const total = useAppStore((s) => s.compraAtivaTotal);
   const mercadoId = useAppStore((s) => s.compraAtivaMercadoId);
@@ -57,11 +69,13 @@ export default function CompraModeScreen({ route, navigation }: Props): JSX.Elem
   const marcarItem = useAppStore((s) => s.marcarItemCompra);
   const voltarItem = useAppStore((s) => s.voltarItemCompra);
   const removerUnplanned = useAppStore((s) => s.removerUnplannedCompra);
+  const editarItem = useAppStore((s) => s.editarItemCompra);
 
   const [filters, setFilters] = useState<Set<CompraFiltro>>(new Set());
   const [mercadoModalVisible, setMercadoModalVisible] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<ItemListaWithProduto | null>(null);
+  const [editFieldsItem, setEditFieldsItem] = useState<ItemListaWithProduto | null>(null);
 
   const filtered = useMemo(() => items.filter((i) => matchesFilters(i, filters)), [items, filters]);
 
@@ -85,17 +99,23 @@ export default function CompraModeScreen({ route, navigation }: Props): JSX.Elem
   };
 
   const handleLongPress = (item: ItemListaWithProduto): void => {
-    if (item.status !== 'comprado') return;
-    const buttons = [
-      { text: 'Cancelar', style: 'cancel' as const },
+    const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [
+      { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Voltar para a comprar',
-        onPress: () => voltarItem(item.id),
+        text: 'Editar dados',
+        onPress: () => setEditFieldsItem(item),
       },
     ];
+    if (item.status === 'comprado') {
+      buttons.push({
+        text: 'Voltar para a comprar',
+        onPress: () => voltarItem(item.id),
+      });
+    }
     if (item.origem === 'compra') {
       buttons.push({
-        text: 'Remover de vez',
+        text: 'Remover',
+        style: 'destructive',
         onPress: () => removerUnplanned(item.id),
       });
     }
@@ -178,6 +198,33 @@ export default function CompraModeScreen({ route, navigation }: Props): JSX.Elem
         visible={addModalVisible}
         onDismiss={() => setAddModalVisible(false)}
       />
+      <Portal>
+        <Modal
+          visible={editFieldsItem !== null}
+          onDismiss={() => setEditFieldsItem(null)}
+          contentContainerStyle={[
+            styles.modal,
+            { backgroundColor: theme.colors.surface },
+          ]}
+        >
+          <View style={styles.modalHeader}>
+            <Text variant="titleMedium">Editar item</Text>
+            <IconButton
+              icon="close"
+              onPress={() => setEditFieldsItem(null)}
+              accessibilityLabel="Fechar"
+            />
+          </View>
+          {editFieldsItem ? (
+            <EditItemForm
+              listaId={route.params.listaId}
+              item={editFieldsItem}
+              onSubmit={(patch) => editarItem(editFieldsItem.id, patch)}
+              onSaved={() => setEditFieldsItem(null)}
+            />
+          ) : null}
+        </Modal>
+      </Portal>
     </View>
   );
 }
@@ -188,4 +235,11 @@ const styles = StyleSheet.create({
   empty: { textAlign: 'center', marginTop: 32 },
   fabAdd: { position: 'absolute', right: 16, bottom: 88 },
   fabConcluir: { position: 'absolute', right: 16, bottom: 16 },
+  modal: { margin: 20, padding: 16, borderRadius: 12 },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
 });

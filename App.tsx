@@ -10,7 +10,12 @@ import { log } from '@/lib/log';
 import RootTabs from '@/navigation/RootTabs';
 import { useAppStore } from '@/state';
 import { bootstrapStores } from '@/state/bootstrap';
-import { darkTheme, lightTheme } from '@/theme';
+import {
+  darkTheme,
+  lightTheme,
+  navigationDarkTheme,
+  navigationLightTheme,
+} from '@/theme';
 
 export default function App(): JSX.Element | null {
   const [ready, setReady] = useState(false);
@@ -30,15 +35,17 @@ export default function App(): JSX.Element | null {
   if (!ready) return null;
 
   const effectiveScheme = themeMode === 'system' ? scheme : themeMode;
-  const theme = effectiveScheme === 'dark' ? darkTheme : lightTheme;
+  const isDark = effectiveScheme === 'dark';
+  const theme = isDark ? darkTheme : lightTheme;
+  const navTheme = isDark ? navigationDarkTheme : navigationLightTheme;
 
   return (
     <SafeAreaProvider>
       <PaperProvider theme={theme}>
-        <NavigationContainer>
+        <NavigationContainer theme={navTheme}>
           <RootTabs />
         </NavigationContainer>
-        <StatusBar style="auto" />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
       </PaperProvider>
     </SafeAreaProvider>
   );

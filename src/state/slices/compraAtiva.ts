@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand';
 
 import type {
   ItemListaAdd,
+  ItemListaPatch,
   ItemListaWithProduto,
   makeItemListaRepo,
 } from '@/db/repos/itemListaRepo';
@@ -31,6 +32,7 @@ export type CompraAtivaSlice = {
     precoUnitario: number;
   }) => void;
   removerUnplannedCompra: (itemId: string) => void;
+  editarItemCompra: (itemId: string, patch: ItemListaPatch) => void;
   endCompraAtiva: () => void;
 };
 
@@ -137,6 +139,15 @@ export const createCompraAtivaSlice: StateCreator<CompraAtivaSlice> = (set, get)
     const listaId = get().compraAtivaListaId;
     if (!listaId) throw new Error('CompraAtivaSlice: no active lista');
     itemRepo.removeUnplanned(itemId);
+    const { items, total } = refreshFromRepo(listaId, itemRepo);
+    set({ compraAtivaItems: items, compraAtivaTotal: total });
+  },
+
+  editarItemCompra: (itemId, patch) => {
+    const itemRepo = requireRepo(get()._compraItemRepo, '_compraItemRepo');
+    const listaId = get().compraAtivaListaId;
+    if (!listaId) throw new Error('CompraAtivaSlice: no active lista');
+    itemRepo.update(itemId, patch);
     const { items, total } = refreshFromRepo(listaId, itemRepo);
     set({ compraAtivaItems: items, compraAtivaTotal: total });
   },
